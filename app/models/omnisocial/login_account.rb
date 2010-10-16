@@ -1,9 +1,18 @@
 module Omnisocial
-  class LoginAccount < ActiveRecord::Base
-    belongs_to :user
-  
+  class LoginAccount
+    include Mongoid::Document
+
+    field :type
+    field :user_id
+    field :remote_account_id
+    field :name
+    field :login
+    field :picture_url
+
+    referenced_in :user, :inverse_of => :login_account
+
     def self.find_or_create_from_auth_hash(auth_hash)
-      if (account = find_by_remote_account_id(auth_hash['uid']))
+      if account = self.first(:conditions => {:remote_account_id => auth_hash['uid']})
         account.assign_account_info(auth_hash)
         account.save
         account
@@ -13,17 +22,18 @@ module Omnisocial
     end
   
     def self.create_from_auth_hash(auth_hash)
-      create do |account|
-        account.assign_account_info(auth_hash)
-      end
+      account = self.new
+      account.assign_account_info(auth_hash)
+      account.save
+      account
     end
   
     def find_or_create_user
       return self.user if self.user
     
-      ::User.create do |user|
-        user.login_account = self
-      end
+      profile = ::User.new(:login_account => self)
+      profile.save
+      profile
     end
   end
 end
